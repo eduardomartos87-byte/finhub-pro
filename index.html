@@ -193,17 +193,24 @@
       }
     };
 
-    let state = DB.load();
+    // Inicializa state ANTES de qualquer função que o use (evita TDZ)
+    var state = DB.load();
+
     function persist() { DB.save(state); render(); }
 
-    // Currency helpers
+    // Currency helpers (sem default param que referencia state)
     const symbols = { BRL: 'R$', USD: '$', EUR: '€' };
-    function fmt(v, cur = state.currency) {
-      const rate = state.rates[cur] / state.rates.BRL;
+    function fmt(v, cur) {
+      cur = cur || (state && state.currency) || 'BRL';
+      const rate = (state && state.rates && state.rates[cur]) ? state.rates[cur] / state.rates.BRL : 1;
       const converted = v * rate;
       return symbols[cur] + ' ' + converted.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-    function setCurrency(c) { state.currency = c; persist(); }
+    function setCurrency(c) { 
+      if (!state) return;
+      state.currency = c; 
+      persist(); 
+    }
 
     // Compute derived
     function compute() {

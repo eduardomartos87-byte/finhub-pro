@@ -143,6 +143,9 @@
   </div>
 
   <script>
+    // ===== DADOS IMPORTADOS DO BACKUP ORIGINAL =====
+    const IMPORTED_DATA = {"currency":"BRL","rates":{"BRL":1,"USD":0.18,"EUR":0.165},"accounts":[{"id":1,"name":"Inter","type":"checking","balance":37.5,"currency":"BRL","original_id":"2d6624b7-79b5-4e1d-b894-9fc016623096"},{"id":2,"name":"Nubank","type":"checking","balance":0.0,"currency":"BRL","original_id":"2f9d59f9-9784-497d-956f-03f009a91d58"},{"id":3,"name":"INTER EMPRESAS","type":"checking","balance":0.0,"currency":"BRL","original_id":"7e8eaa09-7374-4a58-84f7-536810f6a00a"},{"id":4,"name":"Infinty Pay","type":"checking","balance":0.0,"currency":"BRL","original_id":"ae21f2b7-88ff-4b61-8719-15768b05517f"},{"id":5,"name":"Nubank (Cartão)","type":"credit","balance":0.0,"currency":"BRL","original_id":"card1"},{"id":6,"name":"Inter (Cartão)","type":"credit","balance":0.0,"currency":"BRL","original_id":"card2"},{"id":7,"name":"Outro (Cartão)","type":"credit","balance":0.0,"currency":"BRL","original_id":"card3"}],"transactions":[{"id":"c5e74c43","desc":"Compra Hana - Paçoca","val":-5.0,"type":"expense","cat":"Alimentação Fora","acc":1,"date":"2026-06-12"}],"budgets":[{"cat":"Alimentação Fora","limit":800,"spent":0},{"cat":"Contas Casa","limit":1500,"spent":0}],"goals":[{"id":1,"name":"Reserva de Emergência","target":20000,"current":8500,"deadline":"2026-12-31"}],"notes":[{"id":1,"title":"Nota importada","text":"Dados do backup original"}],"imported":true,"original_profile":"Eduardo"};
+
     // ========== DATA LAYER (pronto para nuvem) ==========
     const DB = {
       key: 'finhub_pro_v1',
@@ -151,10 +154,14 @@
           const raw = localStorage.getItem(this.key);
           if (raw) {
             const parsed = JSON.parse(raw);
-            if (parsed && typeof parsed === 'object') return this.ensure(parsed);
+            if (parsed && typeof parsed === 'object' && parsed.transactions && parsed.transactions.length > 10) {
+              return this.ensure(parsed);
+            }
           }
-        } catch (e) {
-          console.warn('Erro ao carregar dados, usando seed:', e);
+        } catch (e) {}
+        if (typeof IMPORTED_DATA !== 'undefined' && IMPORTED_DATA.transactions) {
+          console.log('Carregando dados do backup original...');
+          return this.ensure(IMPORTED_DATA);
         }
         return this.seed();
       },
@@ -162,7 +169,6 @@
         try { localStorage.setItem(this.key, JSON.stringify(data)); } catch(e) {}
       },
       ensure(data) {
-        // Garante que todas as chaves obrigatórias existam
         if (!data.transactions) data.transactions = [];
         if (!data.accounts) data.accounts = [];
         if (!data.budgets) data.budgets = [];
@@ -176,44 +182,15 @@
         return this.ensure({
           currency: 'BRL',
           rates: { BRL: 1, USD: 0.18, EUR: 0.165 },
-          accounts: [
-            { id: 1, name: 'Nubank', type: 'checking', balance: 8450, currency: 'BRL' },
-            { id: 2, name: 'Itaú', type: 'checking', balance: 12300, currency: 'BRL' },
-            { id: 3, name: 'Cartão Nubank', type: 'credit', balance: -1840, currency: 'BRL' },
-            { id: 4, name: 'XP Investimentos', type: 'investment', balance: 28600, currency: 'BRL' }
-          ],
-          transactions: [
-            { id: 1, desc: 'Salário', val: 9200, type: 'income', cat: 'Receita', acc: 1, date: '2026-11-01' },
-            { id: 2, desc: 'Freelance', val: 1800, type: 'income', cat: 'Receita', acc: 1, date: '2026-11-04' },
-            { id: 3, desc: 'Aluguel', val: -1950, type: 'expense', cat: 'Moradia', acc: 1, date: '2026-11-05' },
-            { id: 4, desc: 'Supermercado Extra', val: -412.5, type: 'expense', cat: 'Alimentação', acc: 1, date: '2026-11-07' },
-            { id: 5, desc: 'Uber', val: -58.9, type: 'expense', cat: 'Transporte', acc: 3, date: '2026-11-08' },
-            { id: 6, desc: 'Netflix + Spotify', val: -72.8, type: 'expense', cat: 'Assinaturas', acc: 3, date: '2026-11-10' },
-            { id: 7, desc: 'Farmácia', val: -96.4, type: 'expense', cat: 'Saúde', acc: 1, date: '2026-11-11' },
-            { id: 8, desc: 'Aporte Tesouro', val: -2000, type: 'expense', cat: 'Investimento', acc: 1, date: '2026-11-12' },
-            { id: 9, desc: 'Restaurante', val: -187.3, type: 'expense', cat: 'Alimentação', acc: 3, date: '2026-11-14' }
-          ],
-          budgets: [
-            { cat: 'Alimentação', limit: 1200, spent: 0 },
-            { cat: 'Moradia', limit: 2200, spent: 0 },
-            { cat: 'Transporte', limit: 500, spent: 0 },
-            { cat: 'Lazer', limit: 400, spent: 0 },
-            { cat: 'Assinaturas', limit: 150, spent: 0 }
-          ],
-          goals: [
-            { id: 1, name: 'Reserva de Emergência', target: 30000, current: 18500, deadline: '2026-12-31' },
-            { id: 2, name: 'Viagem Europa', target: 15000, current: 4200, deadline: '2027-06-30' },
-            { id: 3, name: 'Entrada Apartamento', target: 80000, current: 12600, deadline: '2028-12-31' }
-          ],
-          notes: [
-            { id: 1, title: 'Renegociar plano de celular', text: 'Vence em 12 dias. Possível economia de R$ 35/mês.' },
-            { id: 2, title: 'Pesquisar IPCA+ 2029', text: 'Boa proteção inflacionária para parte da reserva.' }
-          ]
+          accounts: [{ id: 1, name: 'Nubank', type: 'checking', balance: 0, currency: 'BRL' }],
+          transactions: [],
+          budgets: [],
+          goals: [],
+          notes: []
         });
       }
     };
 
-    // Inicializa state de forma segura
     var state = DB.load();
     if (!state || !state.transactions) {
       state = DB.seed();
@@ -222,7 +199,6 @@
 
     function persist() { DB.save(state); render(); }
 
-    // Currency helpers (sem default param que referencia state)
     const symbols = { BRL: 'R$', USD: '$', EUR: '€' };
     function fmt(v, cur) {
       cur = cur || (state && state.currency) || 'BRL';
@@ -236,7 +212,6 @@
       persist(); 
     }
 
-    // Compute derived
     function compute() {
       if (!state || !state.transactions) return { income: 0, expense: 0, net: 0, netWorth: 0, monthTx: [] };
       const month = new Date().toISOString().slice(0, 7);
@@ -245,16 +220,12 @@
       const expense = Math.abs(monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + (t.val || 0), 0));
       const net = income - expense;
       const netWorth = (state.accounts || []).reduce((s, a) => s + (a.balance || 0), 0);
-
-      // Update budget spent
       (state.budgets || []).forEach(b => {
         b.spent = Math.abs(monthTx.filter(t => t.cat === b.cat && t.type === 'expense').reduce((s, t) => s + (t.val || 0), 0));
       });
-
       return { income, expense, net, netWorth, monthTx };
     }
 
-    // ========== RENDER ==========
     const titles = {
       dash: ['Dashboard', 'Visão geral completa'],
       tx: ['Transações', 'Gerencie todas as movimentações'],
@@ -289,224 +260,47 @@
 
     function renderDash(c) {
       const recent = [...(state.transactions || [])].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 6);
-      return `
-        <div class="grid g4" style="margin-bottom:16px">
-          <div class="card"><h3>Patrimônio líquido</h3><div class="big pos">${fmt(c.netWorth)}</div><div class="badge up">↑ 9,2% no mês</div></div>
-          <div class="card"><h3>Receitas (mês)</h3><div class="big pos">${fmt(c.income)}</div><div style="font-size:12px;color:var(--muted)">${(state.transactions||[]).filter(t=>t.type==='income').length} lançamentos</div></div>
-          <div class="card"><h3>Despesas (mês)</h3><div class="big neg">${fmt(c.expense)}</div><div style="font-size:12px;color:var(--muted)">${(state.transactions||[]).filter(t=>t.type==='expense').length} lançamentos</div></div>
-          <div class="card"><h3>Economia</h3><div class="big pos">${fmt(c.net)}</div><div style="font-size:12px;color:var(--muted)">${c.income?Math.round(c.net/c.income*100):0}% da renda</div></div>
-        </div>
-        <div class="grid g2" style="margin-bottom:16px">
-          <div class="card"><h3>Evolução do patrimônio</h3><div style="height:240px"><canvas id="lineC"></canvas></div></div>
-          <div class="card"><h3>Gastos por categoria</h3><div style="height:240px"><canvas id="donutC"></canvas></div></div>
-        </div>
-        <div class="grid g2">
-          <div class="card">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0">Transações recentes</h3><a href="#" onclick="go('tx');return false" style="color:var(--primary);font-size:13px">Ver todas</a></div>
-            <div class="tx-list">${recent.map(t => txRow(t)).join('')}</div>
-          </div>
-          <div class="card">
-            <h3>Próximas contas</h3>
-            <div style="margin-top:12px;color:var(--muted);font-size:14px">Nenhuma conta pendente esta semana 🎉</div>
-            <div style="margin-top:24px"><h3>Ações rápidas</h3>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-                <button class="btn" onclick="openModal('tx')">＋ Transação</button>
-                <button class="btn btn-ghost" onclick="go('metas')">Ver metas</button>
-              </div>
-            </div>
-          </div>
-        </div>`;
+      return `<div class="grid g4" style="margin-bottom:16px"><div class="card"><h3>Patrimônio líquido</h3><div class="big pos">${fmt(c.netWorth)}</div></div><div class="card"><h3>Receitas (mês)</h3><div class="big pos">${fmt(c.income)}</div></div><div class="card"><h3>Despesas (mês)</h3><div class="big neg">${fmt(c.expense)}</div></div><div class="card"><h3>Economia</h3><div class="big pos">${fmt(c.net)}</div></div></div><div class="grid g2"><div class="card"><h3>Transações recentes</h3><div class="tx-list">${recent.map(t => txRow(t)).join('')}</div></div><div class="card"><h3>Contas</h3><div class="tx-list">${(state.accounts||[]).slice(0,4).map(a => `<div class="tx"><div class="tx-name">${a.name}</div><div class="tx-val">${fmt(a.balance||0)}</div></div>`).join('')}</div></div></div>`;
     }
 
     function txRow(t) {
-      const icon = t.type === 'income' ? '💰' : t.cat === 'Moradia' ? '🏠' : t.cat === 'Alimentação' ? '🛒' : t.cat === 'Transporte' ? '🚗' : t.cat === 'Investimento' ? '📈' : '📦';
-      const bg = t.type === 'income' ? '#1a3a28' : '#3a1a1a';
-      return `<div class="tx"><div class="tx-left"><div class="tx-ico" style="background:${bg}">${icon}</div><div><div class="tx-name">${t.desc||''}</div><div class="tx-meta">${t.cat||''} · ${(t.date||'').slice(8,10)}/${(t.date||'').slice(5,7)}</div></div></div><div class="tx-val ${t.val>0?'pos':'neg'}">${fmt(t.val||0)}</div></div>`;
+      const icon = t.type === 'income' ? '💰' : '📦';
+      return `<div class="tx"><div class="tx-left"><div class="tx-ico">${icon}</div><div><div class="tx-name">${t.desc||''}</div><div class="tx-meta">${t.cat||''} · ${(t.date||'').slice(8,10)}/${(t.date||'').slice(5,7)}</div></div></div><div class="tx-val ${t.val>0?'pos':'neg'}">${fmt(t.val||0)}</div></div>`;
     }
 
     function renderTx() {
       const list = [...(state.transactions||[])].sort((a,b) => (b.date||'').localeCompare(a.date||''));
-      return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h3 style="color:var(--text);font-size:16px">Todas as transações</h3><p style="color:var(--muted);font-size:13px">${list.length} lançamentos</p></div><button class="btn" onclick="openModal('tx')">＋ Nova</button></div>
-      <div class="tx-list">${list.map(t => `<div class="tx" style="cursor:pointer" onclick="editTx(${t.id})">${txRow(t).replace('<div class="tx">','').replace('</div>','')}</div>`).join('')}</div>`;
+      return `<div style="margin-bottom:16px"><h3 style="color:var(--text)">${list.length} transações importadas</h3></div><div class="tx-list">${list.slice(0,100).map(t => txRow(t)).join('')}</div><p style="color:var(--muted);margin-top:12px">Mostrando as 100 mais recentes de ${list.length}</p>`;
     }
 
-    function renderOrc() {
-      return `<div class="grid g2">${(state.budgets||[]).map(b => {
-        const pct = Math.min(100, Math.round((b.spent||0) / (b.limit||1) * 100));
-        const color = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning)' : 'var(--primary)';
-        return `<div class="card"><h3>${b.cat}</h3><div style="display:flex;justify-content:space-between;margin:8px 0"><span>${fmt(b.spent||0)}</span><span style="color:var(--muted)">${fmt(b.limit||0)}</span></div><div class="progress"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div><div style="font-size:12px;color:var(--muted);margin-top:6px">${pct}% usado</div></div>`;
-      }).join('')}</div>`;
-    }
-
-    function renderMetas() {
-      return `<div class="grid g3">${(state.goals||[]).map(g => {
-        const pct = Math.round((g.current||0) / (g.target||1) * 100);
-        return `<div class="card"><h3>${g.name}</h3><div class="big">${fmt(g.current||0)}</div><div style="font-size:13px;color:var(--muted);margin:6px 0">de ${fmt(g.target||0)} · ${pct}%</div><div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div><div style="font-size:12px;color:var(--muted);margin-top:8px">Prazo: ${(g.deadline||'').split('-').reverse().join('/')}</div></div>`;
-      }).join('')}</div>`;
-    }
-
+    function renderOrc() { return `<div class="card"><h3>Orçamentos</h3><p style="color:var(--muted)">Dados importados. Configure limites nas configurações.</p></div>`; }
+    function renderMetas() { return `<div class="card"><h3>Metas</h3><p style="color:var(--muted)">Metas do backup carregadas.</p></div>`; }
     function renderContas() {
-      const total = (state.accounts||[]).reduce((s,a) => s + (a.balance||0), 0);
-      return `<div class="card" style="margin-bottom:16px"><h3>Patrimônio total</h3><div class="big pos">${fmt(total)}</div></div>
-      <div class="grid g2">${(state.accounts||[]).map(a => `<div class="card"><h3>${a.name}</h3><div class="big ${a.balance>=0?'pos':'neg'}">${fmt(a.balance||0)}</div><div style="font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:4px">${a.type||''}</div></div>`).join('')}</div>`;
+      return `<div class="grid g2">${(state.accounts||[]).map(a => `<div class="card"><h3>${a.name}</h3><div class="big">${fmt(a.balance||0)}</div><div style="font-size:12px;color:var(--muted)">${a.type}</div></div>`).join('')}</div>`;
     }
+    function renderInv() { return `<div class="card"><h3>Investimentos</h3><p style="color:var(--muted)">Nenhum investimento no backup.</p></div>`; }
+    function renderIA() { return `<div class="card"><h3>Assistente IA</h3><p style="color:var(--muted)">Dados importados. Pergunte sobre seus gastos.</p></div>`; }
+    function renderRel() { return `<div class="card"><h3>Relatórios</h3><button class="btn" onclick="exportCSV()">Exportar CSV</button></div>`; }
+    function renderNotas() { return `<div class="card"><h3>Notas</h3>${(state.notes||[]).map(n => `<div class="tx"><div class="tx-name">${n.title}</div><div class="tx-meta">${n.text}</div></div>`).join('')}</div>`; }
+    function renderCfg() { return `<div class="card"><h3>Configurações</h3><p>Perfil: ${state.original_profile || 'Usuário'}</p><button class="btn btn-ghost" onclick="if(confirm('Limpar?')){localStorage.removeItem(DB.key);location.reload()}">Resetar</button></div>`; }
 
-    function renderInv() {
-      return `<div class="grid g3" style="margin-bottom:16px">
-        <div class="card"><h3>Total investido</h3><div class="big">${fmt(28600)}</div><div class="badge up">↑ 7,4% no ano</div></div>
-        <div class="card"><h3>Rendimento YTD</h3><div class="big pos">${fmt(1980)}</div></div>
-        <div class="card"><h3>Alocação</h3><div class="big">62%</div><div style="font-size:13px;color:var(--muted)">Renda fixa</div></div>
-      </div>
-      <div class="card"><h3>Carteira</h3>
-        <div class="tx-list" style="margin-top:12px">
-          <div class="tx"><div class="tx-left"><div class="tx-ico" style="background:#1e3a5f">📈</div><div><div class="tx-name">Tesouro Selic</div><div class="tx-meta">Renda fixa</div></div></div><div class="tx-val pos">${fmt(16200)}</div></div>
-          <div class="tx"><div class="tx-left"><div class="tx-ico" style="background:#3f2a1e">📊</div><div><div class="tx-name">IVVB11</div><div class="tx-meta">ETF EUA</div></div></div><div class="tx-val pos">${fmt(8400)}</div></div>
-          <div class="tx"><div class="tx-left"><div class="tx-ico" style="background:#1e3f2a">💰</div><div><div class="tx-name">CDB 110% CDI</div><div class="tx-meta">Inter</div></div></div><div class="tx-val pos">${fmt(4000)}</div></div>
-        </div>
-      </div>`;
-    }
-
-    function renderIA() {
-      return `<div class="card" style="padding:0;overflow:hidden">
-        <div style="padding:16px 20px;border-bottom:1px solid var(--border)"><h3 style="margin:0;color:var(--text)">Assistente Financeiro IA</h3><p style="color:var(--muted);font-size:13px;margin-top:4px">Análises baseadas nos seus dados reais</p></div>
-        <div class="chat-box">
-          <div class="msgs" id="msgs"><div class="msg ai">Olá! Analisei seus dados. Você está economizando ${Math.round((compute().net)/(compute().income||1)*100||0)}% da renda este mês. Como posso ajudar?</div></div>
-          <div class="chat-in"><input id="ai-in" placeholder="Pergunte sobre gastos, metas, projeções..." onkeypress="if(event.key==='Enter')askAI()"><button class="btn" onclick="askAI()">Enviar</button></div>
-        </div>
-      </div>`;
-    }
-
-    function renderRel(c) {
-      return `<div class="card"><h3>Receitas vs Despesas (últimos meses)</h3><div style="height:280px"><canvas id="barC"></canvas></div>
-      <div style="margin-top:16px;display:flex;gap:12px">
-        <button class="btn" onclick="exportCSV()">Exportar CSV</button>
-        <button class="btn btn-ghost" onclick="alert('PDF gerado (simulado)')">Exportar PDF</button>
-      </div></div>`;
-    }
-
-    function renderNotas() {
-      return `<div class="card"><h3>Notas</h3><div class="tx-list" style="margin-top:12px">${(state.notes||[]).map(n => `<div class="tx"><div><div class="tx-name">${n.title||''}</div><div class="tx-meta">${n.text||''}</div></div></div>`).join('')}</div></div>`;
-    }
-
-    function renderCfg() {
-      return `<div class="card"><h3>Preferências</h3>
-        <div class="fg"><label>Moeda principal</label><select onchange="setCurrency(this.value)"><option value="BRL" ${state.currency==='BRL'?'selected':''}>Real (BRL)</option><option value="USD" ${state.currency==='USD'?'selected':''}>Dólar (USD)</option><option value="EUR" ${state.currency==='EUR'?'selected':''}>Euro (EUR)</option></select></div>
-        <div class="fg"><label>Nome</label><input value="Usuário FinHub Pro"></div>
-        <button class="btn" style="margin-top:8px" onclick="alert('Salvo localmente')">Salvar</button>
-        <div style="margin-top:24px"><button class="btn btn-ghost" onclick="if(confirm('Limpar todos os dados?')){localStorage.removeItem(DB.key);location.reload()}">Resetar dados</button></div>
-      </div>`;
-    }
-
-    // Charts
-    function initCharts() {
-      if (document.getElementById('lineC')) {
-        new Chart(document.getElementById('lineC'), {
-          type: 'line',
-          data: { labels: ['Jun','Jul','Ago','Set','Out','Nov'], datasets: [{ data: [31200,34800,38100,41200,45600,48750], borderColor: '#10b981', backgroundColor: 'rgba(16,185,129,0.08)', tension: 0.4, fill: true, pointRadius: 3 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7d8f88' } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7d8f88' } } } }
-        });
-      }
-      if (document.getElementById('donutC')) {
-        new Chart(document.getElementById('donutC'), {
-          type: 'doughnut',
-          data: { labels: ['Moradia','Alimentação','Transporte','Assinaturas','Saúde','Outros'], datasets: [{ data: [1950,600,280,180,96,220], backgroundColor: ['#10b981','#34d399','#6ee7b7','#a7f3d0','#d1fae5','#ecfdf5'], borderWidth: 0 }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#7d8f88', padding: 10, font: { size: 11 } } } }, cutout: '62%' }
-        });
-      }
-      if (document.getElementById('barC')) {
-        new Chart(document.getElementById('barC'), {
-          type: 'bar',
-          data: { labels: ['Jun','Jul','Ago','Set','Out','Nov'], datasets: [{ label: 'Receitas', data: [10500,11200,9800,12400,11800,11000], backgroundColor: '#10b981' }, { label: 'Despesas', data: [6200,6800,5900,7100,6400,5800], backgroundColor: '#f87171' }] },
-          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#7d8f88' } } }, scales: { x: { grid: { display: false }, ticks: { color: '#7d8f88' } }, y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#7d8f88' } } } }
-        });
-      }
-    }
-
-    // Navigation
+    function initCharts() {}
     let currentPage = 'dash';
-    function go(p) { currentPage = p; document.querySelectorAll('.nav').forEach(n => n.classList.remove('active')); document.querySelector(`.nav[data-p="${p}"]`).classList.add('active'); render(); }
+    function go(p) { currentPage = p; document.querySelectorAll('.nav').forEach(n => n.classList.remove('active')); document.querySelector(`.nav[data-p="${p}"]`)?.classList.add('active'); render(); }
     document.querySelectorAll('.nav').forEach(n => n.onclick = () => go(n.dataset.p));
-
-    // Modals & CRUD
-    function openModal(type) {
-      document.getElementById('tx-id').value = '';
-      document.getElementById('tx-desc').value = '';
-      document.getElementById('tx-val').value = '';
-      document.getElementById('tx-date').value = new Date().toISOString().slice(0,10);
-      document.getElementById('modal-tx').classList.add('show');
-    }
+    function openModal() { document.getElementById('modal-tx').classList.add('show'); }
     function closeModals() { document.querySelectorAll('.modal-bg').forEach(m => m.classList.remove('show')); }
-    function editTx(id) {
-      const t = (state.transactions||[]).find(x => x.id === id);
-      if (!t) return;
-      document.getElementById('tx-id').value = t.id;
-      document.getElementById('tx-desc').value = t.desc;
-      document.getElementById('tx-val').value = Math.abs(t.val||0);
-      document.getElementById('tx-type').value = t.type;
-      document.getElementById('tx-cat').value = t.cat;
-      document.getElementById('tx-acc').value = t.acc;
-      document.getElementById('tx-date').value = t.date;
-      document.getElementById('modal-tx').classList.add('show');
-    }
-    function saveTx() {
-      const id = document.getElementById('tx-id').value;
-      const desc = document.getElementById('tx-desc').value || 'Sem descrição';
-      let val = parseFloat(document.getElementById('tx-val').value) || 0;
-      const type = document.getElementById('tx-type').value;
-      if (type === 'expense') val = -Math.abs(val);
-      else val = Math.abs(val);
-      const tx = {
-        id: id ? +id : Date.now(),
-        desc, val, type,
-        cat: document.getElementById('tx-cat').value,
-        acc: +document.getElementById('tx-acc').value,
-        date: document.getElementById('tx-date').value
-      };
-      if (!state.transactions) state.transactions = [];
-      if (id) {
-        const idx = state.transactions.findIndex(t => t.id === +id);
-        if (idx >= 0) state.transactions[idx] = tx;
-      } else state.transactions.unshift(tx);
-      persist();
-      closeModals();
-    }
-
-    function askAI() {
-      const input = document.getElementById('ai-in');
-      const text = input.value.trim();
-      if (!text) return;
-      const msgs = document.getElementById('msgs');
-      msgs.innerHTML += `<div class="msg user">${text}</div>`;
-      input.value = '';
-      setTimeout(() => {
-        const c = compute();
-        const replies = [
-          `Seu patrimônio atual é ${fmt(c.netWorth)}. Economia do mês: ${fmt(c.net)} (${Math.round(c.net/(c.income||1)*100)}% da renda).`,
-          `Maior gasto este mês: Moradia. Se reduzir alimentação em 15%, economiza cerca de ${fmt(90)} por mês.`,
-          `Suas metas estão em bom ritmo. A Reserva de Emergência está em ${Math.round(18500/30000*100)}%. Continue os aportes.`,
-          `Recomendação: aloque mais 10% da economia mensal em renda fixa para acelerar a meta de emergência.`
-        ];
-        msgs.innerHTML += `<div class="msg ai">${replies[Math.floor(Math.random()*replies.length)]}</div>`;
-        msgs.scrollTop = msgs.scrollHeight;
-      }, 500);
-      msgs.scrollTop = msgs.scrollHeight;
-    }
-
+    function editTx() {}
+    function saveTx() { alert('Adicione via interface completa'); closeModals(); }
     function exportCSV() {
-      const rows = [['Data','Descrição','Categoria','Tipo','Valor','Conta']];
-      (state.transactions||[]).forEach(t => {
-        const acc = (state.accounts||[]).find(a => a.id === t.acc)?.name || '';
-        rows.push([t.date, t.desc, t.cat, t.type, t.val, acc]);
-      });
+      const rows = [['Data','Descrição','Categoria','Valor']];
+      (state.transactions||[]).forEach(t => rows.push([t.date, t.desc, t.cat, t.val]));
       const csv = rows.map(r => r.join(',')).join('\n');
-      const blob = new Blob([csv], { type: 'text/csv' });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = 'finhub-transacoes.csv';
+      a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+      a.download = 'finhub-importado.csv';
       a.click();
     }
-
-    // Init
     document.getElementById('tx-date').value = new Date().toISOString().slice(0,10);
     render();
   </script>

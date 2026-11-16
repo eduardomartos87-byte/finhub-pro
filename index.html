@@ -147,13 +147,33 @@
     const DB = {
       key: 'finhub_pro_v1',
       load() {
-        const raw = localStorage.getItem(this.key);
-        if (raw) return JSON.parse(raw);
+        try {
+          const raw = localStorage.getItem(this.key);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') return this.ensure(parsed);
+          }
+        } catch (e) {
+          console.warn('Erro ao carregar dados, usando seed:', e);
+        }
         return this.seed();
       },
-      save(data) { localStorage.setItem(this.key, JSON.stringify(data)); },
+      save(data) { 
+        try { localStorage.setItem(this.key, JSON.stringify(data)); } catch(e) {}
+      },
+      ensure(data) {
+        // Garante que todas as chaves obrigatórias existam
+        if (!data.transactions) data.transactions = [];
+        if (!data.accounts) data.accounts = [];
+        if (!data.budgets) data.budgets = [];
+        if (!data.goals) data.goals = [];
+        if (!data.notes) data.notes = [];
+        if (!data.currency) data.currency = 'BRL';
+        if (!data.rates) data.rates = { BRL: 1, USD: 0.18, EUR: 0.165 };
+        return data;
+      },
       seed() {
-        return {
+        return this.ensure({
           currency: 'BRL',
           rates: { BRL: 1, USD: 0.18, EUR: 0.165 },
           accounts: [
@@ -189,12 +209,16 @@
             { id: 1, title: 'Renegociar plano de celular', text: 'Vence em 12 dias. Possível economia de R$ 35/mês.' },
             { id: 2, title: 'Pesquisar IPCA+ 2029', text: 'Boa proteção inflacionária para parte da reserva.' }
           ]
-        };
+        });
       }
     };
 
-    // Inicializa state ANTES de qualquer função que o use (evita TDZ)
+    // Inicializa state de forma segura
     var state = DB.load();
+    if (!state || !state.transactions) {
+      state = DB.seed();
+      DB.save(state);
+    }
 
     function persist() { DB.save(state); render(); }
 
@@ -214,16 +238,17 @@
 
     // Compute derived
     function compute() {
+      if (!state || !state.transactions) return { income: 0, expense: 0, net: 0, netWorth: 0, monthTx: [] };
       const month = new Date().toISOString().slice(0, 7);
-      const monthTx = state.transactions.filter(t => t.date.startsWith(month));
-      const income = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.val, 0);
-      const expense = Math.abs(monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.val, 0));
+      const monthTx = (state.transactions || []).filter(t => t.date && t.date.startsWith(month));
+      const income = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + (t.val || 0), 0);
+      const expense = Math.abs(monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + (t.val || 0), 0));
       const net = income - expense;
-      const netWorth = state.accounts.reduce((s, a) => s + a.balance, 0);
+      const netWorth = (state.accounts || []).reduce((s, a) => s + (a.balance || 0), 0);
 
       // Update budget spent
-      state.budgets.forEach(b => {
-        b.spent = Math.abs(monthTx.filter(t => t.cat === b.cat && t.type === 'expense').reduce((s, t) => s + t.val, 0));
+      (state.budgets || []).forEach(b => {
+        b.spent = Math.abs(monthTx.filter(t => t.cat === b.cat && t.type === 'expense').reduce((s, t) => s + (t.val || 0), 0));
       });
 
       return { income, expense, net, netWorth, monthTx };
@@ -259,16 +284,16 @@
       else if (currentPage === 'notas') el.innerHTML = renderNotas();
       else if (currentPage === 'cfg') el.innerHTML = renderCfg();
       if (currentPage === 'dash' || currentPage === 'rel') setTimeout(initCharts, 50);
-      document.getElementById('tx-acc').innerHTML = state.accounts.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+      document.getElementById('tx-acc').innerHTML = (state.accounts || []).map(a => `<option value="${a.id}">${a.name}</option>`).join('');
     }
 
     function renderDash(c) {
-      const recent = [...state.transactions].sort((a,b) => b.date.localeCompare(a.date)).slice(0, 6);
+      const recent = [...(state.transactions || [])].sort((a,b) => (b.date||'').localeCompare(a.date||'')).slice(0, 6);
       return `
         <div class="grid g4" style="margin-bottom:16px">
           <div class="card"><h3>Patrimônio líquido</h3><div class="big pos">${fmt(c.netWorth)}</div><div class="badge up">↑ 9,2% no mês</div></div>
-          <div class="card"><h3>Receitas (mês)</h3><div class="big pos">${fmt(c.income)}</div><div style="font-size:12px;color:var(--muted)">${state.transactions.filter(t=>t.type==='income').length} lançamentos</div></div>
-          <div class="card"><h3>Despesas (mês)</h3><div class="big neg">${fmt(c.expense)}</div><div style="font-size:12px;color:var(--muted)">${state.transactions.filter(t=>t.type==='expense').length} lançamentos</div></div>
+          <div class="card"><h3>Receitas (mês)</h3><div class="big pos">${fmt(c.income)}</div><div style="font-size:12px;color:var(--muted)">${(state.transactions||[]).filter(t=>t.type==='income').length} lançamentos</div></div>
+          <div class="card"><h3>Despesas (mês)</h3><div class="big neg">${fmt(c.expense)}</div><div style="font-size:12px;color:var(--muted)">${(state.transactions||[]).filter(t=>t.type==='expense').length} lançamentos</div></div>
           <div class="card"><h3>Economia</h3><div class="big pos">${fmt(c.net)}</div><div style="font-size:12px;color:var(--muted)">${c.income?Math.round(c.net/c.income*100):0}% da renda</div></div>
         </div>
         <div class="grid g2" style="margin-bottom:16px">
@@ -296,34 +321,34 @@
     function txRow(t) {
       const icon = t.type === 'income' ? '💰' : t.cat === 'Moradia' ? '🏠' : t.cat === 'Alimentação' ? '🛒' : t.cat === 'Transporte' ? '🚗' : t.cat === 'Investimento' ? '📈' : '📦';
       const bg = t.type === 'income' ? '#1a3a28' : '#3a1a1a';
-      return `<div class="tx"><div class="tx-left"><div class="tx-ico" style="background:${bg}">${icon}</div><div><div class="tx-name">${t.desc}</div><div class="tx-meta">${t.cat} · ${t.date.slice(8,10)}/${t.date.slice(5,7)}</div></div></div><div class="tx-val ${t.val>0?'pos':'neg'}">${fmt(t.val)}</div></div>`;
+      return `<div class="tx"><div class="tx-left"><div class="tx-ico" style="background:${bg}">${icon}</div><div><div class="tx-name">${t.desc||''}</div><div class="tx-meta">${t.cat||''} · ${(t.date||'').slice(8,10)}/${(t.date||'').slice(5,7)}</div></div></div><div class="tx-val ${t.val>0?'pos':'neg'}">${fmt(t.val||0)}</div></div>`;
     }
 
     function renderTx() {
-      const list = [...state.transactions].sort((a,b) => b.date.localeCompare(a.date));
+      const list = [...(state.transactions||[])].sort((a,b) => (b.date||'').localeCompare(a.date||''));
       return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h3 style="color:var(--text);font-size:16px">Todas as transações</h3><p style="color:var(--muted);font-size:13px">${list.length} lançamentos</p></div><button class="btn" onclick="openModal('tx')">＋ Nova</button></div>
       <div class="tx-list">${list.map(t => `<div class="tx" style="cursor:pointer" onclick="editTx(${t.id})">${txRow(t).replace('<div class="tx">','').replace('</div>','')}</div>`).join('')}</div>`;
     }
 
     function renderOrc() {
-      return `<div class="grid g2">${state.budgets.map(b => {
-        const pct = Math.min(100, Math.round(b.spent / b.limit * 100));
+      return `<div class="grid g2">${(state.budgets||[]).map(b => {
+        const pct = Math.min(100, Math.round((b.spent||0) / (b.limit||1) * 100));
         const color = pct > 90 ? 'var(--danger)' : pct > 70 ? 'var(--warning)' : 'var(--primary)';
-        return `<div class="card"><h3>${b.cat}</h3><div style="display:flex;justify-content:space-between;margin:8px 0"><span>${fmt(b.spent)}</span><span style="color:var(--muted)">${fmt(b.limit)}</span></div><div class="progress"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div><div style="font-size:12px;color:var(--muted);margin-top:6px">${pct}% usado</div></div>`;
+        return `<div class="card"><h3>${b.cat}</h3><div style="display:flex;justify-content:space-between;margin:8px 0"><span>${fmt(b.spent||0)}</span><span style="color:var(--muted)">${fmt(b.limit||0)}</span></div><div class="progress"><div class="progress-bar" style="width:${pct}%;background:${color}"></div></div><div style="font-size:12px;color:var(--muted);margin-top:6px">${pct}% usado</div></div>`;
       }).join('')}</div>`;
     }
 
     function renderMetas() {
-      return `<div class="grid g3">${state.goals.map(g => {
-        const pct = Math.round(g.current / g.target * 100);
-        return `<div class="card"><h3>${g.name}</h3><div class="big">${fmt(g.current)}</div><div style="font-size:13px;color:var(--muted);margin:6px 0">de ${fmt(g.target)} · ${pct}%</div><div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div><div style="font-size:12px;color:var(--muted);margin-top:8px">Prazo: ${g.deadline.split('-').reverse().join('/')}</div></div>`;
+      return `<div class="grid g3">${(state.goals||[]).map(g => {
+        const pct = Math.round((g.current||0) / (g.target||1) * 100);
+        return `<div class="card"><h3>${g.name}</h3><div class="big">${fmt(g.current||0)}</div><div style="font-size:13px;color:var(--muted);margin:6px 0">de ${fmt(g.target||0)} · ${pct}%</div><div class="progress"><div class="progress-bar" style="width:${pct}%"></div></div><div style="font-size:12px;color:var(--muted);margin-top:8px">Prazo: ${(g.deadline||'').split('-').reverse().join('/')}</div></div>`;
       }).join('')}</div>`;
     }
 
     function renderContas() {
-      const total = state.accounts.reduce((s,a) => s + a.balance, 0);
+      const total = (state.accounts||[]).reduce((s,a) => s + (a.balance||0), 0);
       return `<div class="card" style="margin-bottom:16px"><h3>Patrimônio total</h3><div class="big pos">${fmt(total)}</div></div>
-      <div class="grid g2">${state.accounts.map(a => `<div class="card"><h3>${a.name}</h3><div class="big ${a.balance>=0?'pos':'neg'}">${fmt(a.balance)}</div><div style="font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:4px">${a.type}</div></div>`).join('')}</div>`;
+      <div class="grid g2">${(state.accounts||[]).map(a => `<div class="card"><h3>${a.name}</h3><div class="big ${a.balance>=0?'pos':'neg'}">${fmt(a.balance||0)}</div><div style="font-size:12px;color:var(--muted);text-transform:capitalize;margin-top:4px">${a.type||''}</div></div>`).join('')}</div>`;
     }
 
     function renderInv() {
@@ -345,7 +370,7 @@
       return `<div class="card" style="padding:0;overflow:hidden">
         <div style="padding:16px 20px;border-bottom:1px solid var(--border)"><h3 style="margin:0;color:var(--text)">Assistente Financeiro IA</h3><p style="color:var(--muted);font-size:13px;margin-top:4px">Análises baseadas nos seus dados reais</p></div>
         <div class="chat-box">
-          <div class="msgs" id="msgs"><div class="msg ai">Olá! Analisei seus dados. Você está economizando ${Math.round(compute().net/compute().income*100||0)}% da renda este mês. Como posso ajudar?</div></div>
+          <div class="msgs" id="msgs"><div class="msg ai">Olá! Analisei seus dados. Você está economizando ${Math.round((compute().net)/(compute().income||1)*100||0)}% da renda este mês. Como posso ajudar?</div></div>
           <div class="chat-in"><input id="ai-in" placeholder="Pergunte sobre gastos, metas, projeções..." onkeypress="if(event.key==='Enter')askAI()"><button class="btn" onclick="askAI()">Enviar</button></div>
         </div>
       </div>`;
@@ -360,7 +385,7 @@
     }
 
     function renderNotas() {
-      return `<div class="card"><h3>Notas</h3><div class="tx-list" style="margin-top:12px">${state.notes.map(n => `<div class="tx"><div><div class="tx-name">${n.title}</div><div class="tx-meta">${n.text}</div></div></div>`).join('')}</div></div>`;
+      return `<div class="card"><h3>Notas</h3><div class="tx-list" style="margin-top:12px">${(state.notes||[]).map(n => `<div class="tx"><div><div class="tx-name">${n.title||''}</div><div class="tx-meta">${n.text||''}</div></div></div>`).join('')}</div></div>`;
     }
 
     function renderCfg() {
@@ -412,11 +437,11 @@
     }
     function closeModals() { document.querySelectorAll('.modal-bg').forEach(m => m.classList.remove('show')); }
     function editTx(id) {
-      const t = state.transactions.find(x => x.id === id);
+      const t = (state.transactions||[]).find(x => x.id === id);
       if (!t) return;
       document.getElementById('tx-id').value = t.id;
       document.getElementById('tx-desc').value = t.desc;
-      document.getElementById('tx-val').value = Math.abs(t.val);
+      document.getElementById('tx-val').value = Math.abs(t.val||0);
       document.getElementById('tx-type').value = t.type;
       document.getElementById('tx-cat').value = t.cat;
       document.getElementById('tx-acc').value = t.acc;
@@ -437,6 +462,7 @@
         acc: +document.getElementById('tx-acc').value,
         date: document.getElementById('tx-date').value
       };
+      if (!state.transactions) state.transactions = [];
       if (id) {
         const idx = state.transactions.findIndex(t => t.id === +id);
         if (idx >= 0) state.transactions[idx] = tx;
@@ -468,8 +494,8 @@
 
     function exportCSV() {
       const rows = [['Data','Descrição','Categoria','Tipo','Valor','Conta']];
-      state.transactions.forEach(t => {
-        const acc = state.accounts.find(a => a.id === t.acc)?.name || '';
+      (state.transactions||[]).forEach(t => {
+        const acc = (state.accounts||[]).find(a => a.id === t.acc)?.name || '';
         rows.push([t.date, t.desc, t.cat, t.type, t.val, acc]);
       });
       const csv = rows.map(r => r.join(',')).join('\n');
